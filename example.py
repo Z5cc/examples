@@ -1,5 +1,6 @@
 from sklearn.datasets import make_moons, make_friedman2, make_regression
 from sklearn.pipeline import make_pipeline
+from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import PolynomialFeatures
 from sklearn .tree import DecisionTreeRegressor
@@ -19,27 +20,19 @@ import numpy as np
 
 
 class Visualizer:
-    def __init__(self):
+    def __init__(self,y_train,y_test,y_inf):
         self.fig, self.ax = plt.subplots()
         self.ax.set_xlabel("Feature 1")
         self.ax.set_ylabel("Feature 2")
         self.cmap = "RdBu"
+        self.norm = Normalize(vmin=min(y_train.min(), y_test.min(), y_inf.min()), vmax=max(y_train.max(), y_test.max(), y_inf.max()))
 
-
-    def plot(self,X,y,xx1,xx2,y_pred):
-        # TODO: norm
-        norm = Normalize(vmin=min(y.min(), y_pred.min()), vmax=max(y.max(), y_pred.max()))
-
-        surface = self.ax.contourf(xx1, xx2, y_pred, levels=50, cmap=self.cmap, norm = norm)
+    def plot_surface(self,xx1,xx2,y_inf):
+        surface = self.ax.contourf(xx1, xx2, y_inf, levels=50, cmap=self.cmap, norm = self.norm)
         self.fig.colorbar(surface, label="y_inf")
 
-        points = self.ax.scatter(X[:,0],X[:,1],c=y,cmap=self.cmap, norm=norm)
-
-
-
-
-
-
+    def plot_points(self,X,y,edgecolors=None):
+        points = self.ax.scatter(X[:,0],X[:,1],c=y,cmap=self.cmap, norm=self.norm, edgecolors=edgecolors)
 
     def show(self):
         plt.show()
@@ -111,14 +104,18 @@ class NeuralNetwork(nn.Module):
 
 
 
-visualizer = Visualizer()
 data = Data()
 model = Model()
 
 X,y = data.create_data()
-model.train(X,y)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
+model.train(X_train,y_train)
 
-X_inf, xx1, xx2 = data.create_data_inference()# RESHAPING / CHANGING SHAPE
+X_inf, xx1, xx2 = data.create_data_inference()
 y_inf = model.predict(X_inf).reshape(xx1.shape)
-visualizer.plot(X,y,xx1,xx2,y_inf)
+
+visualizer = Visualizer(y_train,y_test,y_inf)
+visualizer.plot_surface(xx1,xx2,y_inf)
+visualizer.plot_points(X_train,y_train)
+visualizer.plot_points(X_test,y_test,edgecolors='black')
 visualizer.show()
