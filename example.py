@@ -1,5 +1,6 @@
 from sklearn.datasets import make_moons, make_friedman2, make_regression
 from sklearn.pipeline import make_pipeline
+from sklearn.metrics import root_mean_squared_error
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import PolynomialFeatures
@@ -66,8 +67,8 @@ class Data:
 class Model:
     def __init__(self):
         # self.model = LinearRegression()
-        # self.model = make_pipeline(PolynomialFeatures(degree=4, include_bias=False),LinearRegression())
-        self.model = DecisionTreeRegressor()
+        self.model = make_pipeline(PolynomialFeatures(degree=4, include_bias=False),LinearRegression())
+        # self.model = DecisionTreeRegressor()
         # neural network
         # increase dimensions of neural network until dimension of my 3d bbox problem. and for 3d bbox problem also try trees and polynomials.
         # increase size and dimension of problem until i can see that neural network helps over tree or polynomial regression
@@ -107,13 +108,22 @@ class NeuralNetwork(nn.Module):
 data = Data()
 model = Model()
 
+# train
 X,y = data.create_data()
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
 model.train(X_train,y_train)
 
+# test and error
+y_train_pred = model.predict(X_train)
+y_test_pred = model.predict(X_test)
+train_error = root_mean_squared_error(y_train, y_train_pred)
+test_error = root_mean_squared_error(y_test, y_test_pred)
+print(f"train_error: {train_error}")
+print(f"test_error: {test_error}\n")
+
+# inference and visualization
 X_inf, xx1, xx2 = data.create_data_inference()
 y_inf = model.predict(X_inf).reshape(xx1.shape)
-
 visualizer = Visualizer(y_train,y_test,y_inf)
 visualizer.plot_surface(xx1,xx2,y_inf)
 visualizer.plot_points(X_train,y_train)
