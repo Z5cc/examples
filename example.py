@@ -60,9 +60,11 @@ class Data:
 
 
 
-
-
-
+# dimension of X with X features and y with Y features
+# if trained with or without N, you can inference on same model with or without N and the other way around. sklearn always forces you to use N
+# sklearn:              X:[N,X]   y:[N,Y] with multidimensional output    ...y:[N] / [N,Y] with one dimensional output
+# pytorch with batch:   X:[N,X]   y:[N,Y]
+# pytorch without batch X:[X]     y:[Y]
 
 class Model:
     def __init__(self):
@@ -75,7 +77,7 @@ class Model:
         # increase size and dimension of problem until i can see that neural network helps over tree or polynomial regression
         # get intuition about inductive bias of CNN and Transformers
 
-    def train(self, X, y):
+    def train(self, X, y): # [A,2] [A]
         if isinstance(self.model, nn.Module):
             self.train_nn(X, y)
         else:
@@ -83,7 +85,7 @@ class Model:
 
     def train_nn(self, X, y):
         X = torch.from_numpy(X).type(torch.float32)
-        y = torch.from_numpy(y).type(torch.float32)
+        y = torch.from_numpy(y).type(torch.float32).unsqueeze(1) # [N] -> [N,1]
         optimizer = torch.optim.SGD(self.model.parameters())
         criterion = nn.MSELoss()
         for _ in range(1000):
@@ -107,8 +109,9 @@ class Model:
     
     def predict_nn(self, X):
         X = torch.from_numpy(X).type(torch.float32)
-        y_pred = self.model(X)
-        y_pred = y_pred.detach().numpy()
+        with torch.no_grad():
+            y_pred = self.model(X)
+        y_pred = y_pred.squeeze(1).numpy() # [N,1] -> [N]
         return y_pred
         
     
