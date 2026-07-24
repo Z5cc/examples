@@ -54,8 +54,8 @@ class Data:
     def __init__(self):
         self.w = 3
 
-    def create_data(self):
-        rng = np.random.default_rng()
+    def create_data(self, seed):
+        rng = np.random.default_rng(seed)
         X = rng.uniform(-self.w,self.w,size=(100,2))
         y = 10 *  np.sin(X[:,0]*X[:,1])     +    2 * X[:,0] ** 2     +     rng.normal(0,1,size=100)
         return X, y
@@ -97,7 +97,7 @@ class Model:
         # increase size and dimension of problem until i can see that neural network helps over tree or polynomial regression
         # get intuition about inductive bias of CNN and Transformers
 
-    def train(self, X, y, validation_data=None, epochs=10000):
+    def train(self, X, y, validation_data=None, epochs=100000):
         X = torch.from_numpy(X).type(torch.float32)
         y = torch.from_numpy(y).type(torch.float32).unsqueeze(1) # [N] -> [N,1]
         optimizer = torch.optim.SGD(self.model.parameters(),lr=0.001)
@@ -148,15 +148,15 @@ class Model:
 
 
 
-
-
-
+seed = 42
+if seed is not None:
+    torch.manual_seed(seed)
 data = Data()
 model = Model()
 
 # train
-X,y = data.create_data()
-X_train, X_valid, y_train, y_valid = train_test_split(X, y, test_size=0.2)
+X,y = data.create_data(seed)
+X_train, X_valid, y_train, y_valid = train_test_split(X, y, test_size=0.2, shuffle=False)
 history = model.train(X_train,y_train,validation_data=(X_valid, y_valid))
 
 # test and error
