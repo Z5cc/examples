@@ -45,13 +45,13 @@ class Data:
         self.w = 3
 
     def create_data(self):
-        rng = np.random.default_rng(42)
-        X = rng.uniform(-self.w,self.w,size=(200,2))
-        y = 10 *  np.sin(X[:,0]*X[:,1])     +    2 * X[:,0] ** 2     +     rng.normal(0,1,size=200)
+        rng = np.random.default_rng()
+        X = rng.uniform(-self.w,self.w,size=(100,2))
+        y = 10 *  np.sin(X[:,0]*X[:,1])     +    2 * X[:,0] ** 2     +     rng.normal(0,1,size=100)
         return X, y
 
     
-    def create_data_inference(self, n_points=200):
+    def create_data_inference(self, n_points=100):
         x1 = np.linspace(-self.w, self.w, n_points)
         x2 = np.linspace(-self.w, self.w, n_points)
         xx1, xx2 = np.meshgrid(x1, x2)
@@ -86,9 +86,9 @@ class Model:
     def train_nn(self, X, y):
         X = torch.from_numpy(X).type(torch.float32)
         y = torch.from_numpy(y).type(torch.float32).unsqueeze(1) # [N] -> [N,1]
-        optimizer = torch.optim.SGD(self.model.parameters())
+        optimizer = torch.optim.SGD(self.model.parameters(),lr=0.001)
         criterion = nn.MSELoss()
-        for _ in range(1000):
+        for _ in range(10000):
             # forward
             y_pred= self.model(X)
             loss = criterion(y_pred, y)
@@ -122,16 +122,14 @@ class Model:
 class NeuralNetwork(nn.Module):
     def __init__(self):
         super().__init__()
-        self.lin1 = nn.Linear(2,10)
-        self.lin2 = nn.Linear(10,50)
-        self.lin3 = nn.Linear(50,50)
-        self.lin4 = nn.Linear(50,1)
+        self.lin1 = nn.Linear(2,8)
+        self.lin2 = nn.Linear(8,8)
+        self.lin3 = nn.Linear(8,1)
 
     def forward(self, x):
         x = F.relu(self.lin1(x)) # hidden layer 1
-        x = F.relu(self.lin2(x)) # hidden layer 2
-        x = F.relu(self.lin3(x)) # hidden layer 3
-        x = self.lin4(x)         # output layer
+        x = F.relu(self.lin2(x)) # hidden layer 1
+        x = self.lin3(x)         # output layer
         return x
 
 
@@ -147,7 +145,7 @@ model = Model()
 # train
 X,y = data.create_data()
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
-model.train(X_train,y_train)
+history = model.train(X_train,y_train)
 
 # test and error
 y_train_pred = model.predict(X_train)
