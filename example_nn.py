@@ -13,6 +13,7 @@ import torch.nn.functional as F
 import matplotlib.pyplot as plt
 from matplotlib.colors import Normalize
 import numpy as np
+import time
 
 
 
@@ -21,28 +22,28 @@ import numpy as np
 
 
 class Visualizer:
-    def __init__(self,y_train,y_valid,y_inf):
+    def __init__(self,y_train,y_val,y_inf):
         self.fig, self.ax = plt.subplots(1,2)
         self.ax_inference = self.ax[0]
         self.ax_loss = self.ax[1]
 
-        self.ax_inference.set_xlabel("Feature 1")
-        self.ax_inference.set_ylabel("Feature 2")
-        self.cmap = "RdBu"
-        self.norm = Normalize(vmin=min(y_train.min(), y_valid.min(), y_inf.min()), vmax=max(y_train.max(), y_valid.max(), y_inf.max()))
+        self.ax_inference.set_xlabel('Feature 1')
+        self.ax_inference.set_ylabel('Feature 2')
+        self.cmap = 'RdBu'
+        self.norm = Normalize(vmin=min(y_train.min(), y_val.min(), y_inf.min()), vmax=max(y_train.max(), y_val.max(), y_inf.max()))
 
     def plot_surface(self,xx1,xx2,y_inf):
         surface = self.ax_inference.contourf(xx1, xx2, y_inf, levels=50, cmap=self.cmap, norm = self.norm)
-        self.fig.colorbar(surface, label="y_inf")
+        self.fig.colorbar(surface, label='y_inf')
 
     def plot_points(self,X,y,edgecolors=None):
         points = self.ax_inference.scatter(X[:,0],X[:,1],c=y,cmap=self.cmap, norm=self.norm, edgecolors=edgecolors)
 
     def plot_history(self,history):
-            self.ax_loss.plot(history["train"], label="Train")
-            self.ax_loss.plot(history["valid"], label="Validation")
-            self.ax_loss.set_xlabel("Epoch")
-            self.ax_loss.set_ylabel("RMSE")
+            self.ax_loss.plot(history['epochs'], history['train'], label='Train')
+            self.ax_loss.plot(history['epochs'], history['val'], label='Validation')
+            self.ax_loss.set_xlabel('epochs')
+            self.ax_loss.set_ylabel('RMSE')
             self.ax_loss.legend()
 
     def show(self):
@@ -100,10 +101,16 @@ class Model:
     def train(self, X, y, validation_data=None, epochs=100000):
         X = torch.from_numpy(X).type(torch.float32)
         y = torch.from_numpy(y).type(torch.float32).unsqueeze(1) # [N] -> [N,1]
+        if validation_data:
+            X_val, y_val = validation_data
+            X_val = torch.from_numpy(X_val).type(torch.float32)
+            y_val = torch.from_numpy(y_val).type(torch.float32).unsqueeze(1) # [N] -> [N,1]
+            validation_data = (X_val, y_val)
         optimizer = torch.optim.SGD(self.model.parameters(),lr=0.001)
         criterion = nn.MSELoss()
-        history = {"train":[],"valid":[]}
-        for _ in range(epochs):
+        history = {'train':[],'val':[],'epochs':[]}
+
+        for i in range(epochs):
             # forward
             y_pred= self.model(X)
             loss = criterion(y_pred, y)
@@ -112,27 +119,26 @@ class Model:
             # update weights according to gradients of weights from backward pass
             optimizer.step()
             optimizer.zero_grad()
-            if validation_data:
-                rmse_train, rmse_valid = self.validate(X, y , validation_data)
+            if validation_data and i%100==0:
+                rmse_train, rmse_val = self.validate(X, y , validation_data)
                 history['train'].append(rmse_train)
-                history['valid'].append(rmse_valid)
+                history['val'].append(rmse_val)
+                history['epochs'].append(i)
         return history
 
     def validate(self, X, y, validation_data):
         criterion = nn.MSELoss()
-        X_valid, y_valid = validation_data
-        X_valid = torch.from_numpy(X_valid).type(torch.float32)
-        y_valid = torch.from_numpy(y_valid).type(torch.float32).unsqueeze(1) # [N] -> [N,1]
-        with torch.no_grad():
+        X_val, y_val = validation_data
+        with torch.inference_mode():
             y_pred = self.model(X)
-            y_valid_pred = self.model(X_valid)
+            y_val_pred = self.model(X_val)
             rmse_train = torch.sqrt(criterion(y_pred, y))
-            rmse_valid = torch.sqrt(criterion(y_valid_pred, y_valid))
-        return rmse_train.item(), rmse_valid.item()
+            rmse_val = torch.sqrt(criterion(y_val_pred, y_val))
+        return rmse_train.item(), rmse_val.item()
     
     def predict(self, X):
         X = torch.from_numpy(X).type(torch.float32)
-        with torch.no_grad():
+        with torch.inference_mode():
             y_pred = self.model(X)
         y_pred = y_pred.squeeze(1).numpy() # [N,1] -> [N]
         return y_pred
@@ -145,7 +151,7 @@ class Model:
 
 
 
-
+start = time.time()
 
 
 seed = 42
@@ -156,23 +162,31 @@ model = Model()
 
 # train
 X,y = data.create_data(seed)
-X_train, X_valid, y_train, y_valid = train_test_split(X, y, test_size=0.2, shuffle=False)
-history = model.train(X_train,y_train,validation_data=(X_valid, y_valid))
+X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=0.2, shuffle=False)
+history = model.train(X_train,y_train,validation_data=(X_val,y_val))
 
 # test and error
 y_train_pred = model.predict(X_train)
-y_valid_pred = model.predict(X_valid)
+y_val_pred = model.predict(X_val)
 train_error = root_mean_squared_error(y_train, y_train_pred)
-test_error = root_mean_squared_error(y_valid, y_valid_pred)
-print(f"train_error: {train_error}")
-print(f"test_error: {test_error}\n")
+test_error = root_mean_squared_error(y_val, y_val_pred)
+print(f'train_error: {train_error}')
+print(f'test_error: {test_error}\n')
 
 # inference and visualization
 X_inf, xx1, xx2 = data.create_data_inference()
 y_inf = model.predict(X_inf).reshape(xx1.shape)
-visualizer = Visualizer(y_train,y_valid,y_inf)
+visualizer = Visualizer(y_train,y_val,y_inf)
 visualizer.plot_surface(xx1,xx2,y_inf)
 visualizer.plot_points(X_train,y_train)
-visualizer.plot_points(X_valid,y_valid,edgecolors='black')
+visualizer.plot_points(X_val,y_val,edgecolors='black')
 visualizer.plot_history(history)
+print(f'total time: {time.time()-start}')
 visualizer.show()
+
+
+
+# TODO:
+# underfitting vs overfitting: stop training at right time (-> epochs. but also look for learning rate scheduler and optimizer)
+# underfitting vs overfitting: right model size (-> nn architecture)
+# regularizing
