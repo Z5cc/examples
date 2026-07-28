@@ -21,10 +21,15 @@ import time
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(f'using device: {DEVICE}')
 BATCH_SIZE = 32
-EPOCHS = 1000 #2000
-SEED = 44
+EPOCHS = 2000
+SEED = 42
 if SEED is not None:
     torch.manual_seed(SEED)
+NOISE = 5 # losses shall get close to that noise
+NEURONS = 32
+print(f'neurons: {NEURONS}')
+WEIGHT_DECAY = 0.000 # regularization
+print(f'weight_decay: {WEIGHT_DECAY}')
 
 
 
@@ -44,24 +49,26 @@ class Visualizer:
         self.norm = Normalize(vmin=min(y_train.min(), y_val.min(), y_inf.min()), vmax=max(y_train.max(), y_val.max(), y_inf.max()))
 
     def plot_colorsurface(self,xx1,xx2,y_inf):
-        surface = self.ax_inference.contourf(xx1, xx2, y_inf, levels=50, cmap=self.cmap, norm = self.norm)
+        surface = self.ax_inference.contourf(xx1, xx2, y_inf, levels=50, cmap=self.cmap, norm=self.norm)
         self.fig.colorbar(surface, label='y_inf')
 
     def plot_colorsurface_points(self,X,y,edgecolors=None):
         self.ax_inference.scatter(X[:,0],X[:,1],c=y,cmap=self.cmap, norm=self.norm, edgecolors=edgecolors)
 
+
     def plot_height(self,xx1,xx2,y_inf):
         self.ax_height.plot_surface(xx1, xx2, y_inf,cmap=self.cmap,norm=self.norm,alpha=0.7)
+        # self.ax_height.plot_wireframe(xx1, xx2, y_inf)
 
     def plot_height_points(self,X,y,edgecolors=None):
         self.ax_height.scatter(X[:,0],X[:,1],y,norm=self.norm,edgecolors=edgecolors)
 
     def plot_history(self,history):
-            self.ax_loss.plot(history['epochs'], history['train'], label='Train')
-            self.ax_loss.plot(history['epochs'], history['val'], label='Validation')
-            self.ax_loss.set_xlabel('epochs')
-            self.ax_loss.set_ylabel('RMSE')
-            self.ax_loss.legend()
+        self.ax_loss.plot(history['epochs'], history['train'], label='Train')
+        self.ax_loss.plot(history['epochs'], history['val'], label='Validation')
+        self.ax_loss.set_xlabel('epochs')
+        self.ax_loss.set_ylabel('RMSE')
+        self.ax_loss.legend()
 
     def show(self):
         plt.show()
@@ -73,10 +80,10 @@ class Visualizer:
 class NeuralNetwork(nn.Module):
     def __init__(self):
         super().__init__()
-        self.lin1 = nn.Linear(2,64)
-        self.lin2 = nn.Linear(64,128)
-        self.lin3 = nn.Linear(128,64)
-        self.lin4 = nn.Linear(64,1)
+        self.lin1 = nn.Linear(2,NEURONS//2)
+        self.lin2 = nn.Linear(NEURONS//2,NEURONS)
+        self.lin3 = nn.Linear(NEURONS,NEURONS//2)
+        self.lin4 = nn.Linear(NEURONS//2,1)
 
     def forward(self, x):
         x = F.relu(self.lin1(x)) # hidden layer 1
@@ -111,7 +118,7 @@ class Model:
         # get intuition about inductive bias of CNN and Transformers
 
     def train(self, dataloader_train, dataloader_val_tr, dataloader_val):
-        optimizer = torch.optim.SGD(self.model.parameters(), lr=0.005)
+        optimizer = torch.optim.SGD(self.model.parameters(), lr=0.005, weight_decay=WEIGHT_DECAY)
         # scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.999)
         criterion = nn.MSELoss()
         history = {'train':[],'val':[],'epochs':[]}
@@ -165,12 +172,12 @@ class Model:
 class Points:
     def __init__(self):
         self.w = 3
-        self.n = 300
+        self.n = 1000
 
     def create_data(self, seed):
         rng = np.random.default_rng(seed)
         X = rng.uniform(-self.w,self.w,size=(self.n,2))
-        y = 10 *  np.sin(X[:,0]*X[:,1])     +    2 * X[:,0] ** 2     +     rng.normal(0,1,size=self.n)
+        y = 10 *  np.sin(X[:,0]*X[:,1])     +    2 * X[:,0] ** 2     +     rng.normal(0,NOISE,size=self.n)
         return X, y
 
     def create_data_inference(self, n_points=100):
