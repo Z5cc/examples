@@ -25,10 +25,10 @@ EPOCHS = 2000
 SEED = 42
 if SEED is not None:
     torch.manual_seed(SEED)
-NOISE = 5 # losses shall get close to that noise
-NEURONS = 32
+NOISE = 1 # losses shall get close to that noise
+NEURONS = 16
 print(f'neurons: {NEURONS}')
-WEIGHT_DECAY = 0.000 # regularization
+WEIGHT_DECAY = 0.00 # regularization
 print(f'weight_decay: {WEIGHT_DECAY}')
 
 
@@ -172,7 +172,7 @@ class Model:
 class Points:
     def __init__(self):
         self.w = 3
-        self.n = 1000
+        self.n = 50
 
     def create_data(self, seed):
         rng = np.random.default_rng(seed)
