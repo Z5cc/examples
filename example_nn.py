@@ -20,16 +20,18 @@ import time
 
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(f'using device: {DEVICE}')
-BATCH_SIZE = 32
-EPOCHS = 2000
-SEED = 42
+DATA_POINTS = 80
+BATCH_SIZE = 64
+EPOCHS = 8000
+SEED = 66
 if SEED is not None:
     torch.manual_seed(SEED)
-NOISE = 1 # losses shall get close to that noise
+NOISE = 3 # losses shall get close to that noise
 NEURONS = 16
 print(f'neurons: {NEURONS}')
-WEIGHT_DECAY = 0.00 # regularization
+WEIGHT_DECAY = 0.001 # regularization
 print(f'weight_decay: {WEIGHT_DECAY}')
+P = 0.03    # dropout
 
 
 
@@ -84,11 +86,14 @@ class NeuralNetwork(nn.Module):
         self.lin2 = nn.Linear(NEURONS//2,NEURONS)
         self.lin3 = nn.Linear(NEURONS,NEURONS//2)
         self.lin4 = nn.Linear(NEURONS//2,1)
+        self.drop1 = nn.Dropout(p=P)
+        self.drop2 = nn.Dropout(p=P)
+        self.drop3 = nn.Dropout(p=P)
 
     def forward(self, x):
-        x = F.relu(self.lin1(x)) # hidden layer 1
-        x = F.relu(self.lin2(x)) # hidden layer 2
-        x = F.relu(self.lin3(x)) # hidden layer 3
+        x = self.drop1(F.relu(self.lin1(x))) # hidden layer 1
+        x = self.drop2(F.relu(self.lin2(x))) # hidden layer 2
+        x = self.drop3(F.relu(self.lin3(x))) # hidden layer 3
         x = self.lin4(x)         # output layer
         return x
 
@@ -172,12 +177,11 @@ class Model:
 class Points:
     def __init__(self):
         self.w = 3
-        self.n = 50
 
     def create_data(self, seed):
         rng = np.random.default_rng(seed)
-        X = rng.uniform(-self.w,self.w,size=(self.n,2))
-        y = 10 *  np.sin(X[:,0]*X[:,1])     +    2 * X[:,0] ** 2     +     rng.normal(0,NOISE,size=self.n)
+        X = rng.uniform(-self.w,self.w,size=(DATA_POINTS,2))
+        y = 10 *  np.sin(X[:,0]*X[:,1])     +    2 * X[:,0] ** 2     +     rng.normal(0,NOISE,size=DATA_POINTS)
         return X, y
 
     def create_data_inference(self, n_points=100):
